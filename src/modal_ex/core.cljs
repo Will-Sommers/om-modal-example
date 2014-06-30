@@ -56,8 +56,7 @@
   (reify
     om/IRenderState
     (render-state [_ {:keys [c-click]}]
-      (let [path (.. data -path)]
-        (dom/div #js {:onClick #(put! c-click data)} (:task data))))))
+      (dom/div #js {:onClick #(put! c-click data)} (:task data)))))
 
 (defn main-component [data owner]
   (reify
