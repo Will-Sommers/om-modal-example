@@ -57,7 +57,7 @@
     om/IRenderState
     (render-state [_ {:keys [c-click]}]
       (let [path (.. data -path)]
-        (dom/div #js {:onClick #(put! c-click path)} (:task data))))))
+        (dom/div #js {:onClick #(put! c-click data)} (:task data))))))
 
 (defn main-component [data owner]
   (reify
@@ -69,10 +69,8 @@
     (will-mount [_]
       (let [c-click (om/get-state owner :c-click)]
         (go (while true
-              (let [message (<! c-click)]
-                (om/update! data :modal {:display true
-                                         :path message})
-                )))))
+              (let [card (<! c-click)]
+                (om/update! data :modal {:card card}))))))
 
     om/IRenderState
     (render-state [_ {:keys [c-click]}]
@@ -89,9 +87,9 @@
 
 
 (defn display-modal? [data]
-  (if (:display data)
-    #js {:display "block"}
-    #js {:display "none"}))
+  (if (nil? (:card data))
+    #js {:display "none"}
+    #js {:display "block"}))
 
 (defn modal-text [data owner]
   (reify
@@ -114,9 +112,9 @@
   (reify
     om/IRender
     (render [_]
-      (let [path (get-in data [:modal :path])]
-        (dom/div #js {:style (display-modal? (:modal data))}
-          (when (get-in data [:modal :display])
+      (let [modal (:modal data)]
+        (dom/div #js {:style (display-modal? modal)}
+          (when (:card modal)
             (dom/div nil
               (dom/div #js {:className "overlay"
                             :style #js {:width "100%"
@@ -126,10 +124,9 @@
                                         :top 0
                                         :left 0
                                         :opacity "0.7"}
-                            :onClick #(om/update! data :modal {:display false
-                                                               :path nil})})
+                            :onClick #(om/update! data :modal {:path card})})
               (dom/div nil
-                (om/build modal-text (get-in data path))))))))))
+                (om/build modal-text (get-in data [:modal :card]))))))))))
 
 (om/root
   modal-component
