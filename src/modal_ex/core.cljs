@@ -8,45 +8,51 @@
 
 (def app-state (atom {:modal {:display false
                               :path nil}
-                      :columns [{:name "To Do" :cards [{:task "Sidebar"
-                                                        :id 0}
-                                                       {:task "Header"
-                                                        :id 1}
-                                                       {:task "Create new board"
-                                                        :id 2}]
+                      :columns [{:name "To Do"
+                                 :id 0
+                                 :cards [{:task "Sidebar"
+                                          :id 0}
+                                         {:task "Header"
+                                          :id 1}
+                                         {:task "Create new board"
+                                          :id 2}]
                                  :state {:add-header? false
                                          :add-card? false
                                          :card-modal {:display false
                                                       :id 10}}}
-                                {:name "Doing" :cards [{:task "Drag Lists"
-                                                        :id 1}
-                                                       {:task "Drag Cards"
-                                                        :id 2}
-                                                       {:task "Make it look pretty"
-                                                        :id 3}
-                                                       {:task "Handle Resizing"
-                                                        :id 4}
-                                                       {:task "placeholder"
-                                                        :id 5}
-                                                       {:task "placeholder"
-                                                        :id 6}
-                                                       {:task "placeholder"
-                                                        :id 7}
-                                                       {:task "placeholder"
-                                                        :id 8}
-                                                       {:task "placeholder"
-                                                        :id 9}
-                                                       {:task "placeholder"
-                                                        :id 10}
-                                                       {:task "placeholder"
-                                                        :id 11}
-                                                       {:task "placeholder"
-                                                        :id 12}]
+                                {:name "Doing"
+                                 :id 1
+                                 :cards [{:task "Drag Lists"
+                                          :id 1}
+                                         {:task "Drag Cards"
+                                          :id 2}
+                                         {:task "Make it look pretty"
+                                          :id 3}
+                                         {:task "Handle Resizing"
+                                          :id 4}
+                                         {:task "placeholder"
+                                          :id 5}
+                                         {:task "placeholder"
+                                          :id 6}
+                                         {:task "placeholder"
+                                          :id 7}
+                                         {:task "placeholder"
+                                          :id 8}
+                                         {:task "placeholder"
+                                          :id 9}
+                                         {:task "placeholder"
+                                          :id 10}
+                                         {:task "placeholder"
+                                          :id 11}
+                                         {:task "placeholder"
+                                          :id 12}]
                                  :state {:add-header? false
                                          :add-card? false
                                          :card-modal {:display false
                                                       :id 0}}}
-                                {:name "Done" :cards [{:task "hi"}]
+                                {:name "Done"
+                                 :id 2
+                                 :cards [{:task "hi"}]
                                  :state {:add-header? false
                                          :add-card? false
                                          :card-modal {:display false
@@ -55,8 +61,10 @@
 (defn card-component [data owner]
   (reify
     om/IRenderState
-    (render-state [_ {:keys [c-click]}]
-      (dom/div #js {:onClick #(put! c-click data)} (:task data)))))
+    (render-state [_ {:keys [c-click
+                             column-id]}]
+      (dom/div #js {:onClick #(put! c-click {:card-id (:id @data)
+                                             :column-id column-id})} (:task data)))))
 
 (defn main-component [data owner]
   (reify
@@ -68,15 +76,16 @@
     (will-mount [_]
       (let [c-click (om/get-state owner :c-click)]
         (go (while true
-              (let [card (<! c-click)]
-                (om/update! data :modal {:card card}))))))
+              (let [id-hash (<! c-click)]
+                (om/update! data :modal {:selected id-hash}))))))
 
     om/IRenderState
     (render-state [_ {:keys [c-click]}]
       (apply dom/div nil
         (map
           #(apply dom/div nil
-             (om/build-all card-component (:cards %) {:state {:c-click c-click}}))
+             (om/build-all card-component (:cards %) {:state {:c-click c-click
+                                                              :column-id (:id %)}}))
           (:columns data))))))
 
 (om/root
@@ -85,8 +94,8 @@
   {:target (. js/document (getElementById "app"))})
 
 
-(defn display-modal? [data]
-  (if (nil? (:card data))
+(defn display-modal? [path]
+  (if (nil? path)
     #js {:display "none"}
     #js {:display "block"}))
 
@@ -103,17 +112,21 @@
                                   :margin-top "-100px"
                                   :margin-left "-100px"
                                   :background-color "white"}}
-          (dom/input #js {:onChange #(let [new-val (.. % -target -value)]
-                                       (om/transact! data :task (fn [_] new-val)))
-                          :defaultValue task}))))))
+          (dom/input #js {:defaultValue task
+                          :onChange #(let [new-val (.. % -target -value)]
+                                       (om/transact! data :task (fn [_] new-val)))}))))))
 
 (defn modal-component [data owner]
   (reify
     om/IRender
     (render [_]
-      (let [modal (:modal data)]
-        (dom/div #js {:style (display-modal? modal)}
-          (when (:card modal)
+      (let [id-hash (get-in data [:modal :selected])
+            column-seq (filter #(= (:id %) (:column-id id-hash)) (:columns data))
+            ;; filter returns lazy-seq, need to call first to get MapCursor
+            card-seq (filter #(= (:id %) (:card-id id-hash)) (:cards (first column-seq)))
+            card (first card-seq)]
+        (dom/div #js {:style (display-modal? id-hash)}
+          (when id-hash
             (dom/div nil
               (dom/div #js {:className "overlay"
                             :style #js {:width "100%"
@@ -123,9 +136,9 @@
                                         :top 0
                                         :left 0
                                         :opacity "0.7"}
-                            :onClick #(om/update! data :modal {:path card})})
+                            :onClick #(om/update! data :modal {:selected nil})})
               (dom/div nil
-                (om/build modal-text (get-in data [:modal :card]))))))))))
+                (om/build modal-text card)))))))))
 
 (om/root
   modal-component
